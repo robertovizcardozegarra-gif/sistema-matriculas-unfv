@@ -1,0 +1,550 @@
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <span class="brand-mark">FV</span>
+      <div>
+        <strong>Sistema de matrículas</strong>
+        <small>Universidad Nacional Federico Villarreal</small>
+      </div>
+    </div>
+    <nav aria-label="Navegación principal">
+      <a class="active">Mallas curriculares</a>
+    </nav>
+    <div class="account">
+      <span class="avatar">{{ usuario().charAt(0).toUpperCase() }}</span>
+      <span class="account-name">{{ usuario() }}</span>
+      <button type="button" class="text-button" (click)="cerrarSesion()">Salir</button>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+  <div class="page-heading">
+    <div>
+      <p class="breadcrumb">Administración académica / Mallas curriculares</p>
+      <h1>Planes de estudio</h1>
+      <p>Selecciona una carrera para revisar o registrar su malla curricular.</p>
+    </div>
+    <button type="button" class="secondary-button" (click)="abrirFacultad()">
+      <span aria-hidden="true">＋</span> Nueva facultad
+    </button>
+  </div>
+
+  @if (error()) {
+    <div class="message error-message" role="alert">
+      <span>{{ error() }}</span>
+      <button type="button" (click)="error.set('')">×</button>
+    </div>
+  }
+  @if (aviso()) {
+    <div class="message success-message" role="status">{{ aviso() }}</div>
+  }
+
+  <section class="selector-card" aria-labelledby="selector-title">
+    <div class="section-title">
+      <span class="step-number">1</span>
+      <div>
+        <h2 id="selector-title">Ubicación académica</h2>
+        <p>Elige la facultad y la carrera a la que pertenece el plan.</p>
+      </div>
+    </div>
+    <div class="selector-grid">
+      <div class="field-group">
+        <label for="facultad">Facultad</label>
+        <select id="facultad" [value]="codigoFacultad() ?? ''" (change)="cambiarFacultad($any($event.target).value)">
+          <option value="">Seleccionar facultad</option>
+          @for (facultad of facultades(); track facultad.codigo) {
+            <option [value]="facultad.codigo">{{ facultad.sigla ? facultad.sigla + ' — ' : '' }}{{ facultad.nombre }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="field-group">
+        <div class="label-row">
+          <label for="escuela">Carrera profesional</label>
+          @if (codigoFacultad()) {
+            <button type="button" class="small-link" (click)="abrirEscuela()">+ Agregar carrera</button>
+          }
+        </div>
+        <select
+          id="escuela"
+          [disabled]="!codigoFacultad()"
+          [value]="codigoEscuela() ?? ''"
+          (change)="cambiarEscuela($any($event.target).value)"
+        >
+          <option value="">{{ codigoFacultad() ? 'Seleccionar carrera' : 'Primero selecciona una facultad' }}</option>
+          @for (escuela of escuelas(); track escuela.codigo) {
+            <option [value]="escuela.codigo">{{ escuela.nombre }}</option>
+          }
+        </select>
+      </div>
+    </div>
+  </section>
+
+  @if (codigoEscuela()) {
+    <section class="plans-section" aria-labelledby="plans-title">
+      <div class="section-header">
+        <div class="section-title compact">
+          <span class="step-number">2</span>
+          <div>
+            <h2 id="plans-title">Plan curricular</h2>
+            <p>{{ escuelaActual()?.nombre }}</p>
+          </div>
+        </div>
+        <button type="button" class="primary-button" (click)="abrirPlan()">+ Nuevo plan</button>
+      </div>
+
+      @if (planes().length === 0 && !cargando()) {
+        <div class="empty-card">
+          <div class="empty-icon">PE</div>
+          <h3>Aún no hay planes registrados</h3>
+          <p>Crea el primer plan de estudios para esta carrera.</p>
+          <button type="button" class="primary-button" (click)="abrirPlan()">Registrar plan</button>
+        </div>
+      } @else {
+        <div class="plan-list">
+          @for (plan of planes(); track plan.correlativo) {
+            <article
+              class="plan-card"
+              [class.selected]="correlativoPlan() === plan.correlativo"
+              (click)="seleccionarPlan(plan)"
+              (keydown.enter)="seleccionarPlan(plan)"
+              tabindex="0"
+            >
+              <div>
+                <span class="plan-year">{{ plan.anio }}</span>
+                <span class="status" [class]="'status status-' + plan.estado.toLowerCase()">{{ plan.estado.replace('_', ' ') }}</span>
+              </div>
+              <h3>{{ plan.nombre }}</h3>
+              <p>{{ plan.resolucion || 'Resolución no registrada' }}</p>
+              <div class="plan-actions">
+                <span>{{ correlativoPlan() === plan.correlativo ? 'Plan seleccionado' : 'Ver cursos' }}</span>
+                <button type="button" class="icon-button" title="Editar plan" (click)="$event.stopPropagation(); abrirPlan(plan)">Editar</button>
+              </div>
+            </article>
+          }
+        </div>
+      }
+    </section>
+  }
+
+  @if (planActual(); as plan) {
+    <section class="curriculum-section" aria-labelledby="curriculum-title">
+      <div class="section-header curriculum-header">
+        <div class="section-title compact">
+          <span class="step-number">3</span>
+          <div>
+            <h2 id="curriculum-title">Cursos de la malla</h2>
+            <p>{{ plan.nombre }} · {{ facultadActual()?.sigla || facultadActual()?.nombre }}</p>
+          </div>
+        </div>
+        <button type="button" class="primary-button" (click)="abrirCursos()">+ Agregar cursos</button>
+      </div>
+
+      <div class="summary-strip">
+        <div><strong>{{ totalCursosCurriculares() }}</strong><span>Cursos curriculares</span></div>
+        <div><strong>{{ totalCreditos() | number: '1.0-0' }}</strong><span>Créditos activos</span></div>
+        <div><strong>{{ ciclos().length }}</strong><span>Ciclos con cursos</span></div>
+        <div><strong>{{ plan.anio }}</strong><span>Año del plan</span></div>
+      </div>
+
+      @if (cursos().length === 0 && !cargando()) {
+        <div class="empty-card courses-empty">
+          <h3>Este plan todavía no tiene cursos</h3>
+          <p>Agrega los cursos en orden, empezando por el primer ciclo.</p>
+          <button type="button" class="primary-button" (click)="abrirCursos()">Agregar cursos</button>
+        </div>
+      } @else {
+        <div class="cycle-list">
+          @for (ciclo of ciclos(); track ciclo.numero) {
+            <article class="cycle-card">
+              <div class="cycle-heading">
+                <div><span class="cycle-number">{{ ciclo.numero }}</span><h3>Ciclo {{ ciclo.numero }}</h3></div>
+                 <span>
+                   {{ cantidadCursosCurriculares(ciclo.cursos) }} {{ cantidadCursosCurriculares(ciclo.cursos) === 1 ? 'curso' : 'cursos' }}
+                   @if (cantidadAlternativasElectivas(ciclo.cursos) > 0) {
+                     · {{ cantidadAlternativasElectivas(ciclo.cursos) }} alternativas electivas
+                   }
+                 </span>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Código</th>
+                      <th>Asignatura</th>
+                      <th>HT</th>
+                      <th>HP</th>
+                      <th>Créd.</th>
+                      <th>Tipo</th>
+                      <th>Prerrequisitos</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (curso of ciclo.cursos; track curso.codigoCurso) {
+                      <tr [class.inactive-row]="curso.estado === 'I'" [class.elective-row]="!!curso.grupoElectivo">
+                        <td class="course-code">{{ curso.codigoCurso }}</td>
+                        <td><strong>{{ curso.nombre }}</strong></td>
+                        <td>{{ curso.horasTeoria ?? '—' }}</td>
+                        <td>{{ curso.horasPractica ?? '—' }}</td>
+                        <td>{{ curso.creditos }}</td>
+                        <td>
+                          <span class="course-type">{{ curso.tipo }}</span>
+                          @if (curso.grupoElectivo) {
+                            <span class="elective-group">{{ curso.grupoElectivo }} · elegir 1</span>
+                          }
+                        </td>
+                        <td>
+                          @if (curso.prerequisitos.length) {
+                            <div class="prereq-list">
+                              @for (requisito of curso.prerequisitos; track requisito.codigoCurso) {
+                                <span title="{{ nombrePrerequisito(requisito.codigoCurso) }}">{{ requisito.codigoCurso }}</span>
+                              }
+                            </div>
+                          } @else {
+                            <span class="muted">Ninguno</span>
+                          }
+                        </td>
+                        <td>
+                          <div class="course-actions">
+                            <button type="button" class="table-action" (click)="abrirCurso(curso)">Editar</button>
+                            <button type="button" class="table-action delete-action" [disabled]="guardando()" (click)="eliminarCurso(curso)">Eliminar</button>
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colspan="2">Total del ciclo</td>
+                      <td>{{ totalHorasTeoria(ciclo.cursos) }}</td>
+                      <td>{{ totalHorasPractica(ciclo.cursos) }}</td>
+                      <td>{{ totalCreditosCiclo(ciclo.cursos) | number: '1.0-0' }}</td>
+                      <td colspan="3"></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </article>
+          }
+        </div>
+      }
+    </section>
+  }
+
+  @if (!codigoEscuela()) {
+    <div class="initial-help">
+      <span aria-hidden="true">↑</span>
+      <p>Selecciona una facultad y una carrera para comenzar.</p>
+    </div>
+  }
+</main>
+
+@if (cargando()) {
+  <div class="loading-bar" aria-label="Cargando"></div>
+}
+
+@if (modal()) {
+  <div class="modal-backdrop" (mousedown)="cerrarModal()">
+    <section
+      class="modal-card"
+      [class.batch-wide]="modal() === 'cursos' && filasCursos.length > 0"
+      role="dialog"
+      aria-modal="true"
+      (mousedown)="$event.stopPropagation()"
+    >
+      <button type="button" class="modal-close" aria-label="Cerrar" (click)="cerrarModal()">×</button>
+
+      @if (error()) {
+        <div class="message error-message modal-error" role="alert">{{ error() }}</div>
+      }
+
+      @switch (modal()) {
+        @case ('facultad') {
+          <div class="modal-heading">
+            <p>Catálogo institucional</p>
+            <h2>Nueva facultad</h2>
+          </div>
+          <form [formGroup]="facultadForm" (ngSubmit)="guardarFacultad()">
+            <div class="form-grid two-columns">
+              <div class="field-group short-field">
+                <label for="sigla">Sigla</label>
+                <input id="sigla" formControlName="sigla" maxlength="10" placeholder="Ej. FIIS" />
+              </div>
+              <div class="field-group wide-field">
+                <label for="nombreFacultad">Nombre de la facultad *</label>
+                <input id="nombreFacultad" formControlName="nombre" placeholder="Facultad de…" />
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="secondary-button" (click)="cerrarModal()">Cancelar</button>
+              <button type="submit" class="primary-button" [disabled]="guardando()">Guardar facultad</button>
+            </div>
+          </form>
+        }
+
+        @case ('escuela') {
+          <div class="modal-heading">
+            <p>{{ facultadActual()?.nombre }}</p>
+            <h2>Nueva carrera profesional</h2>
+          </div>
+          <form [formGroup]="escuelaForm" (ngSubmit)="guardarEscuela()">
+            <div class="field-group">
+              <label for="nombreEscuela">Nombre de la carrera *</label>
+              <input id="nombreEscuela" formControlName="nombre" placeholder="Ej. Ingeniería de Sistemas" />
+            </div>
+            <p class="form-note">El código se asignará automáticamente dentro de la facultad.</p>
+            <div class="form-actions">
+              <button type="button" class="secondary-button" (click)="cerrarModal()">Cancelar</button>
+              <button type="submit" class="primary-button" [disabled]="guardando()">Guardar carrera</button>
+            </div>
+          </form>
+        }
+
+        @case ('plan') {
+          <div class="modal-heading">
+            <p>{{ escuelaActual()?.nombre }}</p>
+            <h2>{{ planEditando() ? 'Editar plan curricular' : 'Nuevo plan curricular' }}</h2>
+          </div>
+          <form [formGroup]="planForm" (ngSubmit)="guardarPlan()">
+            <div class="form-grid two-columns equal">
+              <div class="field-group">
+                <label for="anio">Año del plan *</label>
+                <input id="anio" type="number" min="1900" max="2200" formControlName="anio" />
+              </div>
+              <div class="field-group">
+                <label for="estadoPlan">Estado *</label>
+                <select id="estadoPlan" formControlName="estado">
+                  <option value="BORRADOR">Borrador</option>
+                  <option value="VIGENTE">Vigente</option>
+                  <option value="NO_VIGENTE">No vigente</option>
+                  <option value="ARCHIVADO">Archivado</option>
+                </select>
+              </div>
+            </div>
+            <div class="field-group">
+              <label for="nombrePlan">Nombre del plan *</label>
+              <input id="nombrePlan" formControlName="nombre" placeholder="Ej. Plan Curricular 2019" />
+            </div>
+            <div class="field-group">
+              <label for="resolucion">Resolución</label>
+              <input id="resolucion" formControlName="resolucion" placeholder="Número o referencia del documento" />
+            </div>
+            <div class="form-grid three-columns">
+              <div class="field-group"><label for="aprobacion">Aprobación</label><input id="aprobacion" type="date" formControlName="fechaAprobacion" /></div>
+              <div class="field-group"><label for="inicio">Inicio de vigencia</label><input id="inicio" type="date" formControlName="fechaInicioVigencia" /></div>
+              <div class="field-group"><label for="fin">Fin de vigencia</label><input id="fin" type="date" formControlName="fechaFinVigencia" /></div>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="secondary-button" (click)="cerrarModal()">Cancelar</button>
+              <button type="submit" class="primary-button" [disabled]="guardando()">{{ planEditando() ? 'Guardar cambios' : 'Crear plan' }}</button>
+            </div>
+          </form>
+        }
+
+        @case ('cursos') {
+          <div class="modal-heading">
+            <p>{{ planActual()?.nombre }}</p>
+            <h2>Agregar cursos a la malla</h2>
+          </div>
+
+          <form [formGroup]="cursosLoteForm" (ngSubmit)="guardarCursos()">
+            <div class="batch-settings">
+              <div class="field-group">
+                <label for="cicloLote">Ciclo *</label>
+                <select id="cicloLote" formControlName="ciclo" (change)="actualizarCicloLote()">
+                  @for (numero of numerosCiclo; track numero) {
+                    <option [value]="numero">Ciclo {{ numero }}</option>
+                  }
+                </select>
+              </div>
+              <div class="field-group">
+                <label for="cantidadCursos">Cantidad de cursos *</label>
+                <input
+                  id="cantidadCursos"
+                  type="number"
+                  min="1"
+                  max="20"
+                  formControlName="cantidad"
+                  placeholder="Ej. 7"
+                  (input)="actualizarCantidad($any($event.target).value)"
+                />
+              </div>
+            </div>
+
+            @if (filasCursos.length === 0) {
+              <div class="batch-placeholder">
+                <span>1–20</span>
+                <p>Indica la cantidad de cursos para generar las filas de ingreso.</p>
+              </div>
+            } @else {
+              <div class="batch-intro">
+                <div>
+                  <h3>Introduce los cursos</h3>
+                  <p>Completa una fila por cada asignatura del ciclo seleccionado.</p>
+                </div>
+                <span>{{ filasCursos.length }} {{ filasCursos.length === 1 ? 'fila' : 'filas' }}</span>
+              </div>
+
+              <div class="batch-table-wrap" formArrayName="filas">
+                <table class="batch-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Código *</th>
+                      <th>Nombre de la asignatura *</th>
+                      <th>Horas teoría</th>
+                      <th>Horas práctica</th>
+                      <th>Créditos *</th>
+                      <th>Tipo de curso *</th>
+                      <th>Prerrequisito</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (fila of filasCursos.controls; track $index; let i = $index) {
+                      <tr [formGroupName]="i">
+                        <td class="row-number">{{ i + 1 }}</td>
+                        <td><input formControlName="codigoCurso" maxlength="20" placeholder="Ej. SI101" /></td>
+                        <td><input class="course-name-input" formControlName="nombre" placeholder="Nombre del curso" /></td>
+                        <td><input type="number" min="0" max="40" formControlName="horasTeoria" /></td>
+                        <td><input type="number" min="0" max="40" formControlName="horasPractica" /></td>
+                        <td><input type="number" min="1" max="99" step="1" formControlName="creditos" /></td>
+                        <td>
+                          <select formControlName="tipo" (change)="cambiarTipoCursoFila(i)">
+                            <option value="OBLIGATORIO">Obligatorio</option>
+                            <option value="ELECTIVO">Electivo</option>
+                          </select>
+                        </td>
+                        <td>
+                          <div class="prerequisite-search">
+                            <input
+                              formControlName="busquedaPrerequisito"
+                              autocomplete="off"
+                              [placeholder]="fila.controls.tipo.value === 'ELECTIVO' ? 'Buscar curso o electivo anterior' : 'Buscar curso anterior'"
+                              aria-label="Buscar prerrequisito"
+                            />
+                            @if (fila.controls.busquedaPrerequisito.value.trim()) {
+                              <div class="search-results">
+                                @for (curso of opcionesPrerequisitoFila(i); track curso.codigoCurso) {
+                                  <button type="button" (click)="seleccionarPrerequisitoFila(i, curso.codigoCurso)">
+                                    <strong>{{ curso.codigoCurso }}</strong>
+                                    <span>{{ curso.nombre }}</span>
+                                    <small>Ciclo {{ curso.semestre }}</small>
+                                  </button>
+                                } @empty {
+                                  <p>No se encontraron coincidencias.</p>
+                                }
+                              </div>
+                            }
+                            @if (prerequisitosDeFila(i).length > 0) {
+                              <div class="selected-prerequisites">
+                                @for (curso of prerequisitosDeFila(i); track curso.codigoCurso) {
+                                  <span title="{{ curso.nombre }}">
+                                    {{ curso.codigoCurso }}
+                                    <button type="button" (click)="quitarPrerequisitoFila(i, curso.codigoCurso)" aria-label="Quitar {{ curso.nombre }}">×</button>
+                                  </span>
+                                }
+                              </div>
+                            }
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+
+            <p class="batch-note">Los cursos se guardarán juntos. Si alguna fila tiene un error, no se registrará ninguna.</p>
+            <div class="form-actions">
+              <button type="button" class="secondary-button" (click)="cerrarModal()">Cancelar</button>
+              <button type="submit" class="primary-button" [disabled]="guardando() || filasCursos.length === 0">
+                {{ guardando() ? 'Guardando…' : 'Guardar cursos' }}
+              </button>
+            </div>
+          </form>
+        }
+
+        @case ('curso') {
+          <div class="modal-heading">
+            <p>{{ planActual()?.nombre }}</p>
+            <h2>{{ cursoEditando() ? 'Editar curso' : 'Agregar curso a la malla' }}</h2>
+          </div>
+          <form [formGroup]="cursoForm" (ngSubmit)="guardarCurso()">
+            <div class="form-grid code-name-grid">
+              <div class="field-group">
+                <label for="codigoCurso">Código *</label>
+                <input id="codigoCurso" formControlName="codigoCurso" maxlength="20" [readOnly]="!!cursoEditando()" placeholder="SI101" />
+              </div>
+              <div class="field-group">
+                <label for="nombreCurso">Nombre de la asignatura *</label>
+                <input id="nombreCurso" formControlName="nombre" placeholder="Nombre del curso" />
+              </div>
+            </div>
+            <div class="form-grid four-columns">
+              <div class="field-group"><label for="ciclo">Ciclo *</label><input id="ciclo" type="number" min="1" max="10" formControlName="semestre" (change)="actualizarCompatibilidadPrerequisitosEdicion()" /></div>
+              <div class="field-group"><label for="ht">Horas teoría</label><input id="ht" type="number" min="0" formControlName="horasTeoria" /></div>
+              <div class="field-group"><label for="hp">Horas práctica</label><input id="hp" type="number" min="0" formControlName="horasPractica" /></div>
+              <div class="field-group"><label for="creditos">Créditos *</label><input id="creditos" type="number" min="1" max="99" step="1" formControlName="creditos" /></div>
+            </div>
+            <div class="field-group course-type-field">
+              <label for="tipoCurso">Tipo de curso *</label>
+              <select id="tipoCurso" formControlName="tipo" (change)="actualizarCompatibilidadPrerequisitosEdicion()">
+                <option value="OBLIGATORIO">Obligatorio</option>
+                <option value="ELECTIVO">Electivo</option>
+              </select>
+            </div>
+
+            <fieldset class="prerequisite-box">
+              <legend>Prerrequisitos</legend>
+              <p class="form-note">
+                {{ cursoForm.controls.tipo.value === 'ELECTIVO'
+                  ? 'Busca cursos obligatorios o electivos de ciclos anteriores por código o nombre.'
+                  : 'Busca cursos de cualquier ciclo anterior por código o nombre.' }}
+              </p>
+              <div class="prerequisite-search edit-prerequisite-search">
+                <input
+                  autocomplete="off"
+                  [value]="busquedaPrerequisitoEdicion()"
+                  (input)="busquedaPrerequisitoEdicion.set($any($event.target).value)"
+                  [placeholder]="cursoForm.controls.tipo.value === 'ELECTIVO' ? 'Buscar curso o electivo anterior' : 'Buscar curso anterior'"
+                />
+                @if (busquedaPrerequisitoEdicion().trim()) {
+                  <div class="search-results">
+                    @for (opcion of opcionesPrerequisitoEdicion(); track opcion.codigoCurso) {
+                      <button type="button" (click)="seleccionarPrerequisitoEdicion(opcion.codigoCurso)">
+                        <strong>{{ opcion.codigoCurso }}</strong>
+                        <span>{{ opcion.nombre }}</span>
+                        <small>Ciclo {{ opcion.semestre }}</small>
+                      </button>
+                    } @empty {
+                      <p>No se encontraron coincidencias.</p>
+                    }
+                  </div>
+                }
+                <div class="edit-selected-prerequisites">
+                  @for (seleccion of prerequisitosSeleccionados() | keyvalue; track seleccion.key) {
+                    <div>
+                      <span><strong>{{ seleccion.key }}</strong> {{ nombrePrerequisito(seleccion.key) }}</span>
+                      <select [value]="seleccion.value" (change)="cambiarTipoPrerequisito(seleccion.key, $any($event.target).value)">
+                        <option value="OBLIGATORIO">Obligatorio</option>
+                        <option value="RECOMENDADO">Recomendado</option>
+                      </select>
+                      <button type="button" (click)="alternarPrerequisito(seleccion.key, false)" aria-label="Quitar prerrequisito">×</button>
+                    </div>
+                  }
+                </div>
+              </div>
+            </fieldset>
+
+            <div class="form-actions">
+              <button type="button" class="secondary-button" (click)="cerrarModal()">Cancelar</button>
+              <button type="submit" class="primary-button" [disabled]="guardando()">{{ cursoEditando() ? 'Guardar cambios' : 'Agregar curso' }}</button>
+            </div>
+          </form>
+        }
+      }
+    </section>
+  </div>
+}

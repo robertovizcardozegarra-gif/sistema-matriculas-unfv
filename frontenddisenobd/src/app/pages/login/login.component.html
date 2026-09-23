@@ -1,0 +1,50 @@
+<main class="login-page">
+  <section class="login-card">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">FV</div>
+      <div>
+        <p class="eyebrow">Universidad Nacional Federico Villarreal</p>
+        <h1>Sistema de matrículas</h1>
+      </div>
+    </div>
+
+    <div class="intro">
+      <h2>Acceso administrativo</h2>
+      <p>Ingresa para registrar y organizar los planes curriculares.</p>
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="ingresar()" novalidate>
+      <label for="usuario">Usuario</label>
+      <input id="usuario" type="text" formControlName="usuario" autocomplete="username" />
+      @if (form.controls.usuario.touched && form.controls.usuario.invalid) {
+        <small class="field-error">Ingresa tu usuario.</small>
+      }
+
+      <label for="clave">Contraseña</label>
+      <div class="password-field">
+        <input
+          id="clave"
+          [type]="mostrarClave() ? 'text' : 'password'"
+          formControlName="clave"
+          autocomplete="current-password"
+        />
+        <button type="button" class="show-password" (click)="mostrarClave.set(!mostrarClave())">
+          {{ mostrarClave() ? 'Ocultar' : 'Mostrar' }}
+        </button>
+      </div>
+      @if (form.controls.clave.touched && form.controls.clave.invalid) {
+        <small class="field-error">Ingresa tu contraseña.</small>
+      }
+
+      @if (error()) {
+        <div class="alert" role="alert">{{ error() }}</div>
+      }
+
+      <button class="primary-button" type="submit" [disabled]="enviando()">
+        {{ enviando() ? 'Ingresando…' : 'Ingresar' }}
+      </button>
+    </form>
+
+    <p class="support">Primer entregable · Diseño de Base de Datos</p>
+  </section>
+</main>

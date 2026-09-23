@@ -1,0 +1,92 @@
+@baseUrl = http://localhost:8080
+@token = PEGA_AQUI_EL_TOKEN
+
+### Comprobar que el backend está activo
+GET {{baseUrl}}/api/salud
+
+### Iniciar sesión
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "usuario": "admin",
+  "clave": "TU_CLAVE_INICIAL"
+}
+
+### Listar facultades
+GET {{baseUrl}}/api/facultades
+Authorization: Bearer {{token}}
+
+### Agregar una carrera a una facultad
+POST {{baseUrl}}/api/facultades/7/escuelas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombre": "Nueva carrera profesional",
+  "estado": "A"
+}
+
+### Crear un plan de estudios
+POST {{baseUrl}}/api/facultades/7/escuelas/1/planes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "anio": 2019,
+  "nombre": "Plan curricular 2019",
+  "resolucion": "Resolución de ejemplo",
+  "fechaInicioVigencia": "2019-01-01",
+  "estado": "VIGENTE"
+}
+
+### Crear un curso (reemplaza el plan 1 si corresponde)
+POST {{baseUrl}}/api/facultades/7/escuelas/1/planes/1/cursos
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "codigoCurso": "SI101",
+  "nombre": "Introducción a la Ingeniería de Sistemas",
+  "semestre": 1,
+  "horasTeoria": 3,
+  "horasPractica": 2,
+  "creditos": 4.0,
+  "tipo": "OBLIGATORIO",
+  "estado": "A",
+  "prerequisitos": []
+}
+
+### Crear varios cursos del mismo ciclo en una sola operación
+POST {{baseUrl}}/api/facultades/7/escuelas/1/planes/1/cursos/lote
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+[
+  {
+    "codigoCurso": "SI102",
+    "nombre": "Matemática Discreta",
+    "semestre": 1,
+    "horasTeoria": 3,
+    "horasPractica": 2,
+    "creditos": 4.0,
+    "tipo": "OBLIGATORIO",
+    "estado": "A",
+    "prerequisitos": []
+  },
+  {
+    "codigoCurso": "SI103",
+    "nombre": "Taller de Programación",
+    "semestre": 1,
+    "horasTeoria": 2,
+    "horasPractica": 4,
+    "creditos": 4.0,
+    "tipo": "ELECTIVO",
+    "estado": "A",
+    "prerequisitos": []
+  }
+]
+
+### Eliminar un curso y sus relaciones de prerrequisito
+DELETE {{baseUrl}}/api/facultades/7/escuelas/1/planes/1/cursos/SI103
+Authorization: Bearer {{token}}
